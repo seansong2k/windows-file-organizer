@@ -2,16 +2,31 @@ from pathlib import Path
 import shutil
 
 FILE_TYPES = {
-    "Images": [".jpg", ".jpeg", ".png", ".gif", ".webp"],
-    "Videos": [".mp4", ".mov", ".avi", ".mkv"],
-    "Documents": [".pdf", ".doc", ".docx", ".txt", ".xlsx", ".pptx"],
-    "Archives": [".zip", ".rar", ".7z"],
-    "Music": [".mp3", ".wav", ".flac"],
+    "Images": [
+        ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".heic", ".svg"
+    ],
+    "Videos": [
+        ".mp4", ".mov", ".avi", ".mkv", ".wmv", ".flv", ".webm"
+    ],
+    "Documents": [
+        ".pdf", ".doc", ".docx", ".txt", ".rtf",
+        ".xls", ".xlsx", ".csv",
+        ".ppt", ".pptx"
+    ],
+    "Archives": [
+        ".zip", ".rar", ".7z", ".tar", ".gz"
+    ],
+    "Music": [
+        ".mp3", ".wav", ".flac", ".aac", ".m4a", ".ogg"
+    ],
+    "Programs": [
+        ".exe", ".msi"
+    ]
 }
 
 
-def get_category(filename):
-    extension = Path(filename).suffix.lower()
+def get_category(file_path):
+    extension = file_path.suffix.lower()
 
     for category, extensions in FILE_TYPES.items():
         if extension in extensions:
@@ -20,68 +35,99 @@ def get_category(filename):
     return "Others"
 
 
-def organize(folder):
-    folder = Path(folder)
+def get_unique_destination(folder, file_name):
+    destination = folder / file_name
 
-    for file in list(folder.iterdir()):
-        if not file.is_file():
-            continue
+    if not destination.exists():
+        return destination
 
-        category = get_category(file.name)
+    original = Path(file_name)
+    number = 1
 
-        target_folder = folder / category
-        target_folder.mkdir(exist_ok=True)
+    while True:
+        new_name = f"{original.stem}_{number}{original.suffix}"
+        destination = folder / new_name
 
-        destination = target_folder / file.name
+        if not destination.exists():
+            return destination
 
-        number = 1
-        while destination.exists():
-            destination = target_folder / f"{file.stem}_{number}{file.suffix}"
-            number += 1
-
-        shutil.move(str(file), str(destination))
-
-        print(f"{file.name} -> {category}")
+        number += 1
 
 
-test_folder = Path("test_files")
-test_folder.mkdir(exist_ok=True)
+def organize_downloads():
+    downloads = Path.home() / "Downloads"
 
-test_files = [
-    "photo.jpg",
-    "picture.png",
-    "homework.pdf",
-    "document.docx",
-    "movie.mp4",
-    "music.mp3",
-    "backup.zip",
-    "program.exe",
-]
+    if not downloads.exists():
+        print("Downloads folder was not found.")
+        return
 
-for filename in test_files:
-    file_path = test_folder / filename
+    print("Windows File Organizer")
+    print("----------------------")
+    print(f"Target folder: {downloads}")
+    print()
 
-    if not file_path.exists():
-        file_path.write_text("test file", encoding="utf-8")
+    files = [
+        item for item in downloads.iterdir()
+        if item.is_file()
+    ]
+
+    if not files:
+        print("No files found in Downloads.")
+        return
+
+    print(f"Files found: {len(files)}")
+    print()
+
+    for file in files:
+        print(f"- {file.name}")
+
+    print()
+    confirmation = input(
+        "Type YES to organize these files: "
+    )
+
+    if confirmation != "YES":
+        print("Cancelled.")
+        return
+
+    moved = 0
+    failed = 0
+
+    for file in files:
+        try:
+            category = get_category(file)
+
+            target_folder = downloads / category
+            target_folder.mkdir(exist_ok=True)
+
+            destination = get_unique_destination(
+                target_folder,
+                file.name
+            )
+
+            shutil.move(
+                str(file),
+                str(destination)
+            )
+
+            print(
+                f"{file.name} -> {category}"
+            )
+
+            moved += 1
+
+        except Exception as error:
+            print(
+                f"Failed: {file.name} | {error}"
+            )
+            failed += 1
+
+    print()
+    print("----------------------")
+    print("Finished")
+    print(f"Moved: {moved}")
+    print(f"Failed: {failed}")
 
 
-print("Before:")
-
-for file in test_folder.iterdir():
-    print(" -", file.name)
-
-
-print("\nOrganizing...\n")
-
-organize(test_folder)
-
-
-print("\nDone.")
-print("\nFolders:")
-
-for folder in test_folder.iterdir():
-    if folder.is_dir():
-        print(f"\n{folder.name}/")
-
-        for file in folder.iterdir():
-            print("   ", file.name)
+if __name__ == "__main__":
+    organize_downloads()
